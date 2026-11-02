@@ -48,10 +48,21 @@ npm run dev                     # API http://localhost:4000 · web http://localh
 ```
 Want migration history instead of `db push`? `npm run prisma:migrate -w server -- --name init`.
 
-**Logins:** owner `9342194431`; demo customers `9000000001`…`9000000006`; OTP `123456` in development
-(`ConsoleOtpProvider` also prints it in the server log).
+**Accounts:** the OWNER role is locked to `OWNER_PHONE` (**+91 6385340555**); every other number that signs up
+becomes a CUSTOMER automatically. With `OTP_MODE=fake` (default) no SMS is sent: the owner number logs in with `782751` and every other number with `123455`;
+with `OTP_PROVIDER=msg91|twilio|fast2sms` a fresh random 6-digit code is sent by real SMS.
 
 Everything at once: `docker compose up --build` → http://localhost:8080.
+
+## OTP and roles
+* `OWNER_PHONE` (default `+916385340555`) is the **only** number that can hold the OWNER role. On signup the role is
+  assigned from it; if the value is ever changed, the old owner is demoted and the new number promoted at next login.
+* Codes are generated with `crypto.randomInt`, stored only as a bcrypt hash, single-use, and deleted if the SMS fails
+  (so the customer can retry immediately).
+* Providers implement one `OtpProvider` interface: `Msg91OtpProvider` (DLT template), `TwilioOtpProvider`,
+  `Fast2SmsOtpProvider`, and `ConsoleOtpProvider` for local work. Choose with `OTP_PROVIDER`.
+* `OTP_MODE=fake` (default) → `OWNER_OTP` (782751) for `OWNER_PHONE`, `CUSTOMER_OTP` (123455) for everyone else, no SMS and nothing to pay. `OTP_MODE=real` → random 6-digit code sent through `OTP_PROVIDER`.
+  A warning is logged if the fixed code is ever enabled in production.
 
 ## Environment
 See `.env.example`: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ACCESS_TOKEN_TTL`,
@@ -65,7 +76,7 @@ Errors are always `{ "error": { "code", "message", "details?" } }`.
 | Method | Route | Notes |
 |---|---|---|
 | GET | `/health`, `/public/settings` | status; shop + reward settings |
-| POST | `/auth/otp/request` | `{phone}` — 5 per 10 min, 5-minute expiry |
+| POST | `/auth/otp/request` | `{phone}` → `{isNewUser, expiresInSec, fixedCode}`; random 6-digit code sent by SMS, hashed with bcrypt, 5-minute expiry, 5 requests / 10 min, 5 wrong attempts max |
 | POST | `/auth/otp/verify` | `{phone, code, profile?, deviceId?}` → httpOnly cookies. New user without `profile` → 400 `{needsProfile:true}` |
 | POST | `/auth/refresh`, `/auth/logout` | refresh-token rotation / revoke |
 | GET | `/auth/referral-code/:code` | `{valid, referrerName}` |
@@ -111,12 +122,16 @@ Integration: OTP auth, referral signup, owner-only routes, comment moderation, p
   no disk because the free plan forbids it → `STORAGE_DRIVER=db` keeps images in Postgres),
   frontend on **Vercel** (root directory `client`, `VITE_API_URL` = API URL, `client/vercel.json`
   already contains the SPA rewrite). Finally set `CLIENT_URL`/`PUBLIC_URL` on the API. See `START-HERE.md`.
+* The Docker image runs TypeScript directly with **tsx** (`npx prisma db push && tsx prisma/seed.ts && tsx src/index.ts`)
+  so a type error can never block a deploy. Run `npm run typecheck -w server` / `npm run build:compiled -w server`
+  locally if you prefer a compiled `dist/` build.
 * **Manual:** backend on Render/Railway (`server/Dockerfile`, disk mounted at `UPLOAD_DIR`, `COOKIE_SECURE=true`);
   frontend on Vercel/Netlify (root `client`, build `npm run build`, output `dist`, SPA rewrite `/* → /index.html`).
-* Going live: replace sample posts and `client/public/icons/*`, set real reward amounts and hours,
-  switch `OTP_PROVIDER` to MSG91/Twilio, and consider `STORAGE_DRIVER=s3`.
+* Going live: set `OWNER_PHONE`, `OTP_MODE=real`, `OTP_PROVIDER=msg91` + MSG91 keys, `SEED_DEMO=false`,
+  replace the sample posts and `client/public/icons/*`, and set the real reward amounts and opening hours.
 
 ## Manual test checklist
+0. **Real OTP** — request a code on a real number, confirm the SMS arrives, that a wrong code fails, that it expires after 5 minutes, and that only 6385340555 sees the Admin button.
 1. **Signup via referral** — copy your link on Refer, open in a private window, sign up → referrer sees “Joined”.
 2. **Comment approval** — customer comment shows “Waiting for approval”, invisible to others; owner approves/replies → customer gets alerts.
 3. **Purchase confirmation** — Admin → Referrals → invoice + amount → status becomes Rewarded (below ₹5,000 → Purchased, no rewards).
