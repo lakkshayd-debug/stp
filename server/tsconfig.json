@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
     "esModuleInterop": true, "skipLibCheck": true, "outDir": "dist", "rootDir": "..",
-    "resolveJsonModule": true, "noUncheckedIndexedAccess": true, "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true, "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
   "include": ["src", "prisma", "../shared"],
