@@ -56,7 +56,7 @@ Everything at once: `docker compose up --build` → http://localhost:8080.
 ## Environment
 See `.env.example`: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ACCESS_TOKEN_TTL`,
 `REFRESH_TOKEN_TTL_DAYS`, `CLIENT_URL`, `PUBLIC_URL`, `COOKIE_SECURE`, `UPLOAD_DIR`,
-`STORAGE_DRIVER` (`local|s3`), `OTP_PROVIDER` (`console|msg91|twilio`), `REFERRAL_IP_THRESHOLD`;
+`STORAGE_DRIVER` (`local|db|s3`), `OTP_PROVIDER` (`console|msg91|twilio`), `REFERRAL_IP_THRESHOLD`;
 client: `VITE_API_URL`. No secrets are committed.
 
 ## API (everything under `/api/v1`)
@@ -107,9 +107,10 @@ Unit: qualifying purchase, self-referral blocked, milestone bonuses (once + back
 Integration: OTP auth, referral signup, owner-only routes, comment moderation, purchase → rewards → redemption.
 
 ## Deployment
-* **One click (both halves + DB):** push to GitHub → Render → **New + → Blueprint** → pick repo → Apply.
-  `render.yaml` provisions the database, the Docker API and the static site. Then set `VITE_API_URL`
-  (website service) and `CLIENT_URL` (API service) to the real URLs and redeploy.
+* **Free stack (recommended):** Postgres on **Neon**, API on **Render** (Blueprint → `render.yaml`,
+  no disk because the free plan forbids it → `STORAGE_DRIVER=db` keeps images in Postgres),
+  frontend on **Vercel** (root directory `client`, `VITE_API_URL` = API URL, `client/vercel.json`
+  already contains the SPA rewrite). Finally set `CLIENT_URL`/`PUBLIC_URL` on the API. See `START-HERE.md`.
 * **Manual:** backend on Render/Railway (`server/Dockerfile`, disk mounted at `UPLOAD_DIR`, `COOKIE_SECURE=true`);
   frontend on Vercel/Netlify (root `client`, build `npm run build`, output `dist`, SPA rewrite `/* → /index.html`).
 * Going live: replace sample posts and `client/public/icons/*`, set real reward amounts and hours,

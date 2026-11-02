@@ -1,0 +1,50 @@
+# One command runs everything:  docker compose up --build
+# Then open  http://localhost:8080  (app)   ·   http://localhost:4000/api/v1/health (API)
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shyam
+      POSTGRES_PASSWORD: shyam
+      POSTGRES_DB: shyam_timber
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shyam -d shyam_timber']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: server/Dockerfile }
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: development          # keeps the fixed test OTP 123456
+      PORT: 4000
+      DATABASE_URL: postgresql://shyam:shyam@db:5432/shyam_timber?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-dev-access-secret-change-me-32}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-local-dev-refresh-secret-change-me-32}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}
+      COOKIE_SECURE: 'false'
+      UPLOAD_DIR: /app/server/uploads
+      STORAGE_DRIVER: db
+      OTP_PROVIDER: console
+    ports: ['4000:4000']
+    volumes: ['uploads:/app/server/uploads']
+
+  web:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args: { VITE_API_URL: '${VITE_API_URL:-http://localhost:4000}' }
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ['8080:80']
+
+volumes:
+  pgdata:
+  uploads:
