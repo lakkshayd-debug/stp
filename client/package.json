@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc --noEmit && vite build", "preview": "vite preview --host", "typecheck": "tsc --noEmit" },
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview --host", "typecheck": "tsc --noEmit" },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
     "i18next": "^23.12.2",
